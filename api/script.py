@@ -43,7 +43,7 @@ def get_watch_key(title: str, artist: str) -> str:
         return f"Erreur lors de la recherche : {e}"
 
 
-def download_music(watch_key: str, output_path_origin: str = '/app/data') -> str:
+def download_music(watch_key: str, output_origin_path: str = '/app/data') -> str:
     """
     Télécharge la musique depuis YouTube en utilisant le `watch_key` de la vidéo.
 
@@ -57,11 +57,11 @@ def download_music(watch_key: str, output_path_origin: str = '/app/data') -> str
         str: Un message indiquant si le téléchargement a réussi ou s'il y a eu une erreur.
     """
     url = f"https://www.youtube.com/watch?v={watch_key}"
-    output_path = output_path_origin + watch_key + ".%(ext)s"
+    output_path = os.path.join(output_origin_path, watch_key + ".%(ext)s")
     
     for file in os.listdir(output_origin_path):
         if file.startswith(watch_key):
-            return f"file already downloaded: {watch_key} - {os.join(output_path_origin, file)"
+            return f"file already downloaded: {watch_key} - {os.path.join(output_origin_path, file)}"
 
     ydl_opts = {
         'format': 'bestaudio/best',
@@ -89,7 +89,7 @@ if __name__ == '__main__':
     print(download_music(watch_key))
     
     #  if isinstance(result, bytes):
-        print("La musique a été téléchargée et retournée sous forme de buffer.")
+        #  print("La musique a été téléchargée et retournée sous forme de buffer.")
         #  with open('test.mp3', 'wb') as file:
         #      file.write(result)
         #  print(f'downloaded at test.mp3 - {watch_key}')

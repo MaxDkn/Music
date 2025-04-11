@@ -1,7 +1,13 @@
 services:
-  api-service:
-    build: ./api   # Construire l'image depuis le Dockerfile dans /api
-    container_name: dkn_music 
+  api:
+    build: ./api
     volumes:
-      - ./api/data:/app/data  # Monter le dossier music_data de /api
-    working_dir: /app
+      - ./api/data:/app/data 
+  ui:
+    build: ./ui
+    ports:
+      - "3000:3000"
+    stdin_open: true
+    tty: true
+    
+
