@@ -10,6 +10,7 @@ COPY . .
 
 # Installer les dépendances
 RUN yarn install
+RUN yarn add class-variance-authority tailwind-variants
 
 # Exposer le port 3000 pour l'application Next.js
 EXPOSE 3000

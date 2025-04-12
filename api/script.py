@@ -82,16 +82,8 @@ def download_music(watch_key: str, output_origin_path: str = '/app/data') -> str
 
 
 if __name__ == '__main__':
-    title = "Gangnam Style"
-    artist = "Psy"
-
-    watch_key = get_watch_key(title, artist)
-    print(download_music(watch_key))
-    
-    #  if isinstance(result, bytes):
-        #  print("La musique a été téléchargée et retournée sous forme de buffer.")
-        #  with open('test.mp3', 'wb') as file:
-        #      file.write(result)
-        #  print(f'downloaded at test.mp3 - {watch_key}')
-    #  else:
-    #      print(result)
+    #  title = "Gangnam Style"
+    #  artist = "Psy"
+    print('Hello World')
+    #  watch_key = get_watch_key(title, artist)
+    #  print(download_music(watch_key))
