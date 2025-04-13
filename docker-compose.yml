@@ -2,15 +2,14 @@ services:
   api:
     build: ./api
     volumes:
-      - ./api/data:/app/data 
+      - ./api/data:/app/data
+
   ui:
     build: ./ui
     ports:
       - "3000:3000"
     volumes:
       - ./ui:/app
-
+      - /app/node_modules  # Pour éviter que les modules disparaissent
     stdin_open: true
     tty: true
-    
-
