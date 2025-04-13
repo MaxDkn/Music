@@ -7,9 +7,6 @@ services:
   ui:
     build: ./ui
     ports:
-      - "3000:3000"
-    volumes:
-      - ./ui:/app
-      - /app/node_modules  # Pour éviter que les modules disparaissent
+      - "80:3000"
     stdin_open: true
     tty: true

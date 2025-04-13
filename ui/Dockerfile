@@ -2,14 +2,12 @@ FROM node:20
 
 WORKDIR /app
 
-RUN corepack enable && yarn set version stable
+COPY package.json package-lock.json ./
 
-COPY package.json ./
-
-RUN yarn install
+RUN npm install
 
 COPY . .
 
 EXPOSE 3000
 
-CMD ["yarn", "dev"]
+CMD ["npm", "run", "dev"]

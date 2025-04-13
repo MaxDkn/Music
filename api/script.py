@@ -82,8 +82,8 @@ def download_music(watch_key: str, output_origin_path: str = '/app/data') -> str
 
 
 if __name__ == '__main__':
-    #  title = "Gangnam Style"
-    #  artist = "Psy"
+    title = "Party Rock"
+    artist = "LMFAO"
     print('Hello World')
-    #  watch_key = get_watch_key(title, artist)
-    #  print(download_music(watch_key))
+    watch_key = get_watch_key(title, artist)
+    print(download_music(watch_key))
