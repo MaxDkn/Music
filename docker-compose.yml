@@ -1,12 +1,38 @@
 services:
+  db:
+    container_name: db
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: MaxDkn
+      POSTGRES_PASSWORD: test1234
+      POSTGRES_DB: musicdb
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./api/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+
   api:
+    container_name: api
     build: ./api
     volumes:
-      - ./api/data:/app/data
+      - ./api:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://user:password@music-db:5432/dbname
+    depends_on:
+      - db
 
   ui:
+    container_name: ui
     build: ./ui
     ports:
       - "80:3000"
     stdin_open: true
     tty: true
+    depends_on:
+      - api
+
+volumes:
+  db_data:
