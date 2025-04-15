@@ -2,8 +2,9 @@ FROM python:3.13-alpine
 
 WORKDIR /app
 
-# Install ffmpeg and necessary libraries for Alpine
-RUN apk update && apk add --no-cache ffmpeg libffi build-base
+RUN apk update && apk add --no-cache ffmpeg libffi build-base tzdata && \
+    cp /usr/share/zoneinfo/Europe/Paris /etc/localtime && \
+    echo "Europe/Paris" > /etc/timezone
 
 # Copy the requirements.txt first (to leverage Docker's cache)
 COPY requirements.txt .

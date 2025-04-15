@@ -8,8 +8,19 @@ class MusicIdResponse(BaseModel):
         from_attributes = True
 
 
-class MusicResponse(MusicIdResponse):
+class MusicDBResponse(MusicIdResponse):
     Titre: str
     Artiste: str
     CoverImageBuffer: ClassVar[bytes]
     MusicBuffer: ClassVar[bytes]
+
+
+class ITunesResponse(BaseModel):
+    trackId: int
+    trackName: str
+    artistId: int
+    artistName: str
+    artworkUrl100: str
+
+    class Config:
+        from_attrbiutes = True
