@@ -2,18 +2,17 @@ from pydantic import BaseModel
 from typing import ClassVar
 
 class MusicIdResponse(BaseModel):
-    MusicId: str
+    trackId: int
 
     class Config:
         from_attributes = True
 
 
 class MusicDBResponse(MusicIdResponse):
-    Titre: str
-    Artiste: str
-    CoverImageBuffer: ClassVar[bytes]
-    MusicBuffer: ClassVar[bytes]
-
+    trackName: str
+    artisteName: str
+    coverImageUrl: str
+    
 
 class ITunesResponse(BaseModel):
     trackId: int

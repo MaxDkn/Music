@@ -9,6 +9,6 @@ CREATE TABLE music (
     "artisteId" INTEGER,
     "artisteName" VARCHAR(100),
     "coverImageUrl" VARCHAR(200),
-    "MusicKey" VARCHAR(11),
-    "MusicBuffer" BYTEA
+    "musicKey" VARCHAR(11),
+    "musicBuffer" BYTEA
 );

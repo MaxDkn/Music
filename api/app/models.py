@@ -19,5 +19,5 @@ class Music(Base):
     artisteId = Column("artisteId", Integer)
     artisteName = Column("artisteName", String(100))
     coverImageUrl = Column("coverImageUrl", String(200))
-    MusicKey = Column("MusicKey", String(11))
-    MusicBuffer = Column("MusicBuffer", LargeBinary)
+    musicKey = Column("musicKey", String(11))
+    musicBuffer = Column("musicBuffer", LargeBinary)
