@@ -1,3 +1,5 @@
+"use client";
+import { useTheme } from "next-themes";
 import {
     Menubar,
     MenubarCheckboxItem,
@@ -15,51 +17,53 @@ import {
     MenubarTrigger,
   } from "@/components/ui/menubar"
   
+
+
   export function Menu() {
+    const { theme, setTheme } = useTheme();
+    function handleThemeChange(value: string) {
+      setTheme(value);
+    }
     return (
       <Menubar className="rounded-none border-b border-none px-2 lg:px-4">
         <MenubarMenu>
           <MenubarTrigger className="font-bold">Music</MenubarTrigger>
           <MenubarContent>
-            <MenubarItem>About Music</MenubarItem>
+            <MenubarItem onClick={() => window.open("https://github.com/MaxDkn/music", "_blank")}>About Music</MenubarItem>
             <MenubarSeparator />
-            <MenubarItem>
-              Preferences... <MenubarShortcut>⌘,</MenubarShortcut>
-            </MenubarItem>
-            <MenubarSeparator />
-            <MenubarItem>
-              Hide Music... <MenubarShortcut>⌘H</MenubarShortcut>
-            </MenubarItem>
-            <MenubarItem>
-              Hide Others... <MenubarShortcut>⇧⌘H</MenubarShortcut>
-            </MenubarItem>
-            <MenubarShortcut />
-            <MenubarItem>
-              Quit Music <MenubarShortcut>⌘Q</MenubarShortcut>
-            </MenubarItem>
+            <MenubarSub>
+              <MenubarSubTrigger>Preferences...</MenubarSubTrigger>
+              <MenubarSubContent>
+                <MenubarLabel inset>Theme</MenubarLabel>
+                <MenubarSeparator />
+                <MenubarRadioGroup value={theme} onValueChange={handleThemeChange}>
+                  <MenubarRadioItem value="light">Light</MenubarRadioItem>
+                  <MenubarRadioItem value="dark">Dark</MenubarRadioItem>
+                  <MenubarRadioItem value="system">System</MenubarRadioItem>
+                </MenubarRadioGroup>
+              </MenubarSubContent>
+            </MenubarSub>
           </MenubarContent>
         </MenubarMenu>
         <MenubarMenu>
-          <MenubarTrigger className="relative">File</MenubarTrigger>
+          <MenubarTrigger className="relative">Transfer</MenubarTrigger>
           <MenubarContent>
             <MenubarSub>
-              <MenubarSubTrigger>New</MenubarSubTrigger>
+              <MenubarSubTrigger>Import playlist from...</MenubarSubTrigger>
               <MenubarSubContent className="w-[230px]">
                 <MenubarItem>
-                  Playlist <MenubarShortcut>⌘N</MenubarShortcut>
+                  Spotify <MenubarShortcut>⌘N</MenubarShortcut>
                 </MenubarItem>
                 <MenubarItem disabled>
-                  Playlist from Selection <MenubarShortcut>⇧⌘N</MenubarShortcut>
+                  Deezer <MenubarShortcut>⇧⌘N</MenubarShortcut>
                 </MenubarItem>
                 <MenubarItem>
-                  Smart Playlist... <MenubarShortcut>⌥⌘N</MenubarShortcut>
+                  Youtube <MenubarShortcut>⌥⌘N</MenubarShortcut>
                 </MenubarItem>
-                <MenubarItem>Playlist Folder</MenubarItem>
-                <MenubarItem disabled>Genius Playlist</MenubarItem>
               </MenubarSubContent>
             </MenubarSub>
             <MenubarItem>
-              Open Stream URL... <MenubarShortcut>⌘U</MenubarShortcut>
+              Import playlist from <MenubarShortcut>⌘U</MenubarShortcut>
             </MenubarItem>
             <MenubarItem>
               Close Window <MenubarShortcut>⌘W</MenubarShortcut>

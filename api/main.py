@@ -16,7 +16,12 @@ import io
 from fastapi.middleware.cors import CORSMiddleware
 
 
-app = FastAPI()
+app = FastAPI(
+    title="MusicAPI",
+    docs_url="/api/docs",
+    openapi_url="/api/openapi.json",
+    redoc_url=None
+)
 logging.basicConfig(
     level=logging.INFO,
     format="%(levelname)s:     %(message)s",

@@ -17,8 +17,6 @@ services:
     build: ./api
     volumes:
       - ./api:/app
-    ports:
-      - "8000:8000"
     environment:
       - DATABASE_URL=postgresql://MaxDkn:test1234@db:5432/musicdb
     depends_on:
@@ -27,12 +25,24 @@ services:
   ui:
     container_name: ui
     build: ./ui
-    ports:
-      - "80:3000"
+    volumes:
+      - ./ui:/app
     stdin_open: true
     tty: true
     depends_on:
       - api
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - ui
+      - api
+
 
 volumes:
   db_data:
