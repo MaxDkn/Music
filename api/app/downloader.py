@@ -1,3 +1,4 @@
+from calendar import c
 import os
 import yt_dlp
 import tempfile
@@ -6,6 +7,15 @@ from io import BytesIO
 import app.crud as crud
 from app.schemas import ITunesResponse
 from app.enums.waitlist import WaitlistStatus
+
+
+class RequestFailed(BaseException):
+    """
+    Exception levée lorsque la requête échoue.
+    """
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.message = message
 
 
 def seek_itunes_music(query: str, url: str = "https://itunes.apple.com/search", limit: int = 8, lang: str = "fr_fr"):
@@ -46,8 +56,10 @@ def seek_itunes_music(query: str, url: str = "https://itunes.apple.com/search", 
             for result in data['results']:
                 result['artworkUrl'] = result['artworkUrl100'].replace('100x100bb.jpg', '')
             return data['results']
+    elif response.status_code == 404:
+        return []
     else:
-        return {"error": f"Request failed with status code {response.status_code}"}
+        raise RequestFailed(f"Request failed with status code {response.status_code}")
 
 
 def get_track_info(db, track_id: int, url: str = "https://itunes.apple.com/lookup"):

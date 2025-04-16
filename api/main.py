@@ -14,6 +14,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import logging
 import io
 from fastapi.middleware.cors import CORSMiddleware
+import datetime
 
 
 app = FastAPI(
@@ -22,12 +23,6 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
     redoc_url=None
 )
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(levelname)s:     %(message)s",
-    handlers=[logging.StreamHandler()]
-)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Pour tester, sinon utilise ["http://localhost:3000"]
@@ -35,8 +30,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s:     %(message)s",
+    handlers=[logging.StreamHandler()]
+)
+recurring_job = None
+
+def _compute_next_run_seconds():
+    if not recurring_job or not recurring_job.next_run_time:
+        return None
+    next_run = recurring_job.next_run_time
+    now = datetime.datetime.now(next_run.tzinfo) if next_run.tzinfo else datetime.datetime.now()
+    return int((next_run - now).total_seconds())
 
 
 #  attend que la base de donnée se crée, le script dégueux est pour récuperer à partir de l'url de la bdd, le host name et port.
@@ -82,10 +89,10 @@ def recurring_task():
 
 
 def start_scheduler():
+    global recurring_job
     logging.getLogger('apscheduler').setLevel(logging.WARNING)
-    
     scheduler = BackgroundScheduler()
-    scheduler.add_job(recurring_task, 'interval', minutes=0.5)
+    recurring_job = scheduler.add_job(recurring_task, 'interval', minutes=0.5)
     scheduler.start()
 
 
@@ -145,21 +152,27 @@ def get_status_code_of_a_track(track_id: int, db: Session = Depends(get_db)):
     return crud.modify_status(db, track_id=track_id, status=WaitlistStatus.INDEXED.value)
 """
 
-@app.get('/api/music/download/{track_id}', tags=["download"])
-def download_music(track_id: int, db: Session = Depends(get_db)):
-    music = db.query(models.Waitlist).filter(models.Waitlist.trackId == track_id).first()
+@app.get('/api/music/download', tags=["download"])
+def download_music(trackId: int, db: Session = Depends(get_db)):
+    music = db.query(models.Waitlist).filter_by(trackId=trackId).first()
     if not music:
-        music = crud.add_waitlist_entry(db, track_id=track_id, status=WaitlistStatus.WAITING.value)        
-    else:
-        if music.status != WaitlistStatus.INDEXED.value:
-            status = WaitlistStatus(music.status)
-            return {'status_code': status.value, 'description': status.description()}
-        music = crud.modify_status(db, track_id=track_id, status=WaitlistStatus.WAITING.value)
-    if music is None:
-        raise HTTPException(status_code=404, detail=f"Error with {track_id} please check the database.")
-    status = WaitlistStatus(music.status)
+        # Vérifie que la piste existe bien sur iTunes avant insertion
+        track_info = downloader.get_track_info(db, track_id=trackId)
+        if not track_info or (isinstance(track_info, dict) and 'error' in track_info):
+            raise HTTPException(status_code=404, detail=f"Music with id {trackId} not found")
+        music = crud.add_waitlist_entry(db, track_id=trackId, status=WaitlistStatus.WAITING.value)
+    if music.status == WaitlistStatus.INDEXED.value:
+        music = crud.modify_status(db, track_id=trackId, status=WaitlistStatus.WAITING.value)
 
-    return {'status_code': status.value, 'description': status.description()}
+    if not music:
+        raise HTTPException(status_code=404, detail=f"Error with {trackId}, please check the database.")
+
+    status = WaitlistStatus(music.status)
+    return {
+        "statusCode": status.value,
+        "description": status.description(),
+        "nextRun": _compute_next_run_seconds(),
+    }
 
 
 @app.get('/api/music/all', tags=['music'], response_model=List[MusicDBResponse])
