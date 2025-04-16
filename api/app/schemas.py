@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import ClassVar
+from typing import Optional
 
 class MusicIdResponse(BaseModel):
     trackId: int
@@ -19,7 +19,8 @@ class ITunesResponse(BaseModel):
     trackName: str
     artistId: int
     artistName: str
-    artworkUrl100: str
+    artworkUrl: str
+    statusCode: int
 
     class Config:
         from_attrbiutes = True

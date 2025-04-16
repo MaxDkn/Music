@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from app.enums.waitlist import WaitlistStatus
 from . import models
 
 
@@ -40,3 +41,12 @@ def modify_status(db: Session, track_id: int, status: int):
         db.refresh(waitlist_entry)
         return waitlist_entry
     return None
+
+
+def get_status_code(db: Session, track_id: int):
+    waitlist_entry = db.query(models.Waitlist).filter(models.Waitlist.trackId == track_id).first()
+    if waitlist_entry:
+        return waitlist_entry.status
+    waitlist_entry = add_waitlist_entry(db, track_id=track_id, status=WaitlistStatus.INDEXED.value)
+    if waitlist_entry:
+        return waitlist_entry.status

@@ -8,7 +8,7 @@ from app.schemas import ITunesResponse
 from app.enums.waitlist import WaitlistStatus
 
 
-def seek_itunes_music(query: str, url: str = "https://itunes.apple.com/search", limit: int = 10, lang: str = "fr_fr"):
+def seek_itunes_music(query: str, url: str = "https://itunes.apple.com/search", limit: int = 8, lang: str = "fr_fr"):
     """
     Recherche de la musique sur iTunes en utilisant l'API de recherche iTunes.
 
@@ -43,12 +43,14 @@ def seek_itunes_music(query: str, url: str = "https://itunes.apple.com/search", 
     if response.status_code == 200:
         data = response.json()
         if data["resultCount"] > 0:
+            for result in data['results']:
+                result['artworkUrl'] = result['artworkUrl100'].replace('100x100bb.jpg', '')
             return data['results']
     else:
         return {"error": f"Request failed with status code {response.status_code}"}
 
 
-def get_track_info(track_id: int, url: str = "https://itunes.apple.com/lookup"):
+def get_track_info(db, track_id: int, url: str = "https://itunes.apple.com/lookup"):
     """
     Récupère les informations d'une piste musicale à partir de son identifiant iTunes.
 
@@ -76,7 +78,8 @@ def get_track_info(track_id: int, url: str = "https://itunes.apple.com/lookup"):
         results = data.get("results", [])
         if results:
             track = results[0]
-            track['artworkUrl100'] = track['artworkUrl100'].replace('100x100bb.jpg', '600x600bb.jpg')
+            track['artworkUrl'] = track['artworkUrl100'].replace('100x100bb.jpg', '')
+            track['statusCode'] = crud.get_status_code(db=db, track_id=track_id)
             return ITunesResponse(**track)
     else:
         raise {"error": f"Request failed with status code {response.status_code}"}
@@ -150,7 +153,7 @@ def download_music(track_id: int, db, logger):
         )
         logger.info(f"Track ID {track_id} is being downloaded.")
         # Récupérer les informations de la piste à partir de l'API iTunes
-        track_info = get_track_info(track_id)
+        track_info = get_track_info(db=db, track_id=track_id)
         if not track_info:
             crud.modify_status(
                 db=db, 
@@ -162,7 +165,7 @@ def download_music(track_id: int, db, logger):
         # Vérifier les attributs nécessaires
         trackName = getattr(track_info, 'trackName', None)
         artisteName = getattr(track_info, 'artistName', None)
-        coverImageUrl = getattr(track_info, 'artworkUrl100', None)
+        coverImageUrl = getattr(track_info, 'artworkUrl', None)
         if not all([trackName, artisteName, coverImageUrl]):
             crud.modify_status(
                 db=db, 
@@ -173,7 +176,7 @@ def download_music(track_id: int, db, logger):
             return {"error": "Invalid track data from iTunes"}
 
         # Modifier l'URL de l'image de couverture
-        coverImageUrl = coverImageUrl.replace('100x100bb.jpg', '600x600bb.jpg')
+        coverImageUrl = coverImageUrl.replace('100x100bb.jpg', '')
 
         # Obtenir la clé YouTube
         musicKey = get_watch_key(trackName, artisteName)

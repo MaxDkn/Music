@@ -2,7 +2,7 @@
 import os
 import re
 import time
-from typing import List
+from typing import List, Dict
 from app.enums.waitlist import WaitlistStatus
 from sqlalchemy.orm import Session
 from app import models, crud, downloader
@@ -94,20 +94,22 @@ async def startup_event():
     start_scheduler()
 
 
-@app.get('/api/music/search/{query}', response_model=List[ITunesResponse], tags=["search"])
-async def itunes_query(query: str):
-    results = downloader.seek_itunes_music(query=query)
+@app.get('/api/music/search', response_model=List[ITunesResponse], tags=["search"])
+async def itunes_query(q: str, db: Session = Depends(get_db)):
+    results = downloader.seek_itunes_music(query=q)
     if results:
+        for result in results:
+            result['statusCode'] = crud.get_status_code(db, result['trackId'])
         return results
     else:
         raise HTTPException(status_code=404, detail=f"Aucun résultat trouvé.")
 
 
 @app.get('/api/music/search_track/{id}', response_model=ITunesResponse, tags=['search'])
-async def itunes_query(id: int):
-    results = downloader.get_track_info(track_id=id)
-    if results:
-        return results
+async def itunes_query(id: int, db: Session = Depends(get_db)):
+    result = downloader.get_track_info(db=db, track_id=id)
+    if result:
+        return result
     else:
         raise HTTPException(status_code=404, detail=f"Aucun résultat trouvé.")
 
@@ -117,26 +119,31 @@ def get_all_status_code(db: Session = Depends(get_db)):
     return {music.trackId: WaitlistStatus(music.status).description() for music in db.query(models.Waitlist).all()}
 
 
+@app.get("/api/music/status", tags=["status"])
+def get_status(tracks_id: List[str], db: Session = Depends(get_db)) -> Dict[str, str]:
+    results = {}
+
+    for track_id in tracks_id:
+        music = db.query(models.Waitlist).filter(models.Waitlist.trackId == track_id).first()
+        if not music:
+            # Si le morceau n'est pas dans la DB, on tente de le récupérer
+            music_info = downloader.get_track_info(db=db, track_id=track_id)
+            if music_info:
+                crud.add_waitlist_entry(db, track_id=music_info.trackId, status=WaitlistStatus.INDEXED.value)
+                results[track_id] = WaitlistStatus.INDEXED.value
+            else:
+                results[track_id] = "NOT_FOUND"
+        else:
+            results[track_id] = music.status
+
+    return results
+
+
+"""
 @app.get('/api/music/status/reset/{track_id}', tags=["status"])
 def get_status_code_of_a_track(track_id: int, db: Session = Depends(get_db)):
     return crud.modify_status(db, track_id=track_id, status=WaitlistStatus.INDEXED.value)
-
-
-@app.get('/api/music/status/code/{track_id}', tags=["status"])
-def get_status_code_of_a_track(track_id: int, db: Session = Depends(get_db)):
-    music = db.query(models.Waitlist).filter(models.Waitlist.trackId == track_id).first()
-    if not music:
-        music = downloader.get_track_info(track_id=track_id)
-        if music:
-            crud.add_waitlist_entry(db, track_id=music.trackId, status=WaitlistStatus.INDEXED.value)
-            status = WaitlistStatus.INDEXED
-        else:
-            raise HTTPException(status_code=404, detail=f"Track with id {track_id} not found")
-    else:
-        status = WaitlistStatus(music.status)
-    
-    return {'status_code': status.value, 'description': status.description()}
-
+"""
 
 @app.get('/api/music/download/{track_id}', tags=["download"])
 def download_music(track_id: int, db: Session = Depends(get_db)):

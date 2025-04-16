@@ -15,8 +15,6 @@ services:
   api:
     container_name: api
     build: ./api
-    volumes:
-      - ./api:/app
     environment:
       - DATABASE_URL=postgresql://MaxDkn:test1234@db:5432/musicdb
     depends_on:
@@ -25,9 +23,9 @@ services:
   ui:
     container_name: ui
     build: ./ui
-    volumes:
-      - ./ui:/app
     stdin_open: true
+    environment:
+      API_URL: "/api"
     tty: true
     depends_on:
       - api
