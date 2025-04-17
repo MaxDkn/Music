@@ -3,15 +3,15 @@ from app.enums.waitlist import WaitlistStatus
 from . import models
 
 
-def create_music_entry(db: Session, trackId: int, trackName: str, artisteId: int, artisteName: str, coverImageUrl: str, musicKey: str, musicBuffer: bytes):
+def create_music_entry(db: Session, trackId: int, trackName: str, artistId: int, artistName: str, coverImageUrl: str, musicKey: str, musicBuffer: bytes):
     music = db.query(models.Music).filter(models.Music.trackId == trackId).first()
     if music:
         return music
     music_entry = models.Music(
         trackId=trackId,
         trackName=trackName,
-        artisteId=artisteId,
-        artisteName=artisteName,
+        artistId=artistId,
+        artistName=artistName,
         coverImageUrl=coverImageUrl,
         musicKey=musicKey,
         musicBuffer=musicBuffer

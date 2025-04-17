@@ -23,7 +23,7 @@ interface ITunesTrack {
   trackId: number;
   trackName: string;
   artistName: string;
-  artworkUrl: string;
+  coverImageUrl: string;
   statusCode: number;
   statusDescription: string;
 }
@@ -95,14 +95,14 @@ export default function BrowsePage() {
     }
   };
 
-  const handleTrackClick = async (trackId: number) => {
+  const handleTrackClick = async (trackId: number, trackName: string, artistName: string, coverImageUrl: string) => {
     const track = data?.find((t) => t.trackId === trackId);
     const current = downloadStatus[trackId] ?? {
       statusCode: track?.statusCode ?? 0,
       statusDescription: track?.statusDescription ?? "",
     };
 
-    if (current.statusCode === 200) playTrack(trackId);
+    if (current.statusCode === 200) playTrack({id: trackId, title: trackName, author: artistName, coverImageUrl});
 
     if (current.statusCode !== 100) return;
     
@@ -212,11 +212,11 @@ export default function BrowsePage() {
                 <Tooltip key={track.trackId} delayDuration={800}>
                   <TooltipTrigger asChild>
                     <div
-                      onClick={() => handleTrackClick(track.trackId)}
+                      onClick={() => handleTrackClick(track.trackId, track.trackName, track.artistName, track.coverImageUrl)}
                       className="group relative flex items-center gap-4 p-2 border rounded hover:shadow transition-shadow cursor-pointer"
                     >
                       <Image
-                        src={`${track.artworkUrl}60x60bb.jpg`}
+                        src={`${track.coverImageUrl}60x60bb.jpg`}
                         width={60}
                         height={60}
                         alt={track.trackName}
@@ -246,5 +246,3 @@ export default function BrowsePage() {
     </div>
   );
 }
-
-

@@ -37,7 +37,7 @@ export function AlbumArtwork({
         <ContextMenuTrigger>
           <div className="overflow-hidden rounded-md">
             <Image
-              src={album.cover}
+              src={ `${album.coverImageUrl}1000x1000.jpg` }
               alt={album.name}
               width={width}
               height={height}

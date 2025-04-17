@@ -18,7 +18,7 @@ class RequestFailed(BaseException):
         self.message = message
 
 
-def seek_itunes_music(query: str, url: str = "https://itunes.apple.com/search", limit: int = 8, lang: str = "fr_fr"):
+def seek_itunes_music(query: str, url: str = "https://itunes.apple.com/search", limit: int = 7, lang: str = "fr_fr"):
     """
     Recherche de la musique sur iTunes en utilisant l'API de recherche iTunes.
 
@@ -43,24 +43,40 @@ def seek_itunes_music(query: str, url: str = "https://itunes.apple.com/search", 
         >>> seek_itunes_music("NonExistentSong123")
         None
     """
-    
     response = requests.get(url, params={
         "term": query,
         "media": "music",
         "limit": limit,
         "lang": lang
     })
+
     if response.status_code == 200:
         data = response.json()
-        if data["resultCount"] > 0:
-            for result in data['results']:
-                result['artworkUrl'] = result['artworkUrl100'].replace('100x100bb.jpg', '')
-            return data['results']
+        if data.get("resultCount", 0) > 0:
+            unique_results = []
+            seen = set()
+            for result in data.get('results', []):
+                title = result.get('trackName')
+                artist = result.get('artistName')
+                key = (title, artist)
+                # Ne garder que la première occurrence de chaque titre/auteur
+                if key not in seen:
+                    seen.add(key)
+                    # Ajuster l'URL de la jaquette pour obtenir l'image originale
+                    cover_image_url = result.get('artworkUrl100')
+                    result['coverImageUrl'] = cover_image_url.replace('100x100bb.jpg', '')
+                    unique_results.append(result)
+                    # S'assurer de ne pas dépasser la limite
+                    if len(unique_results) >= limit:
+                        break
+            return unique_results
+        return []
     elif response.status_code == 404:
         return []
     else:
-        raise RequestFailed(f"Request failed with status code {response.status_code}")
-
+        print(f"SEEK_ITUNES_MUSIC : Request failed with status code {response.status_code}")
+        return []
+        
 
 def get_track_info(db, track_id: int, url: str = "https://itunes.apple.com/lookup"):
     """
@@ -80,7 +96,7 @@ def get_track_info(db, track_id: int, url: str = "https://itunes.apple.com/looku
 
     Example:
         >>> get_track_info(123456789)
-        ITunesResponse(trackId=123456789, trackName='Track Name', artistId=123456, artistName='Artist Name', artworkUrl100='https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/ab/cd/ef/abcdefghijklmnopqrstuvwxyz/600x600bb.jpg')
+        ITunesResponse(trackId=123456789, trackName='Track Name', artistId=123456, artistName='Artist Name', coverImageUrl='https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/ab/cd/ef/abcdefghijklmnopqrstuvwxyz/600x600bb.jpg')
         >>> get_track_info(999999999)
         {"error": "Request failed with status code 404"}
     """
@@ -90,7 +106,7 @@ def get_track_info(db, track_id: int, url: str = "https://itunes.apple.com/looku
         results = data.get("results", [])
         if results:
             track = results[0]
-            track['artworkUrl'] = track['artworkUrl100'].replace('100x100bb.jpg', '')
+            track['coverImageUrl'] = track['artworkUrl100'].replace('100x100bb.jpg', '')
             statusCode = crud.get_status_code(db=db, track_id=track_id)
             track['statusCode'] = statusCode
             track['statusDescription'] = WaitlistStatus(statusCode).description()
@@ -179,9 +195,9 @@ def download_music(track_id: int, db, logger):
 
         # Vérifier les attributs nécessaires
         trackName = getattr(track_info, 'trackName', None)
-        artisteName = getattr(track_info, 'artistName', None)
-        coverImageUrl = getattr(track_info, 'artworkUrl', None)
-        if not all([trackName, artisteName, coverImageUrl]):
+        artistName = getattr(track_info, 'artistName', None)
+        coverImageUrl = getattr(track_info, 'coverImageUrl', None)
+        if not all([trackName, artistName, coverImageUrl]):
             crud.modify_status(
                 db=db, 
                 track_id=track_id,
@@ -194,7 +210,7 @@ def download_music(track_id: int, db, logger):
         coverImageUrl = coverImageUrl.replace('100x100bb.jpg', '')
 
         # Obtenir la clé YouTube
-        musicKey = get_watch_key(trackName, artisteName)
+        musicKey = get_watch_key(trackName, artistName)
         if musicKey is None:
             crud.modify_status(
                 db=db, 
@@ -219,8 +235,8 @@ def download_music(track_id: int, db, logger):
         crud.create_music_entry(
             trackId=track_id,
             trackName=trackName,
-            artisteId=track_info.artistId,
-            artisteName=artisteName,
+            artistId=track_info.artistId,
+            artistName=artistName,
             coverImageUrl=coverImageUrl,
             musicKey=musicKey,
             musicBuffer=musicBuffer.getvalue(),

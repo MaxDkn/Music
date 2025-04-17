@@ -1,3 +1,5 @@
+"use client";
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Menu } from "@/components/menu"
@@ -19,11 +21,6 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
-
-export const metadata: Metadata = {
-  title: "MusicApp",
-  description: "Created by Max DECKMYN https://github.com/MaxDkn/music",
-};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

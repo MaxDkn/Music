@@ -2,7 +2,7 @@
 import os
 import re
 import time
-from typing import List, Dict
+from typing import List, Dict, Optional
 from app.enums.waitlist import WaitlistStatus
 from sqlalchemy.orm import Session
 from app import models, crud, downloader
@@ -15,6 +15,7 @@ import logging
 import io
 from fastapi.middleware.cors import CORSMiddleware
 import datetime
+import random
 
 
 app = FastAPI(
@@ -37,10 +38,6 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()]
 )
 recurring_job = None
-
-app.get('/api/')
-def root():
-    return {'message': 'API is running'}
 
 
 def _compute_next_run_seconds():
@@ -109,6 +106,7 @@ async def startup_event():
 @app.get('/api/music/search', response_model=List[ITunesResponse], tags=["search"])
 async def itunes_query(q: str, db: Session = Depends(get_db)):
     results = downloader.seek_itunes_music(query=q)
+
     if results:
         for result in results:
             statusCode = crud.get_status_code(db, result['trackId'])
@@ -120,7 +118,7 @@ async def itunes_query(q: str, db: Session = Depends(get_db)):
 
 
 @app.get('/api/music/search_track/{id}', response_model=ITunesResponse, tags=['search'])
-async def itunes_query(id: int, db: Session = Depends(get_db)):
+async def search_track_with_track_id(id: int, db: Session = Depends(get_db)):
     result = downloader.get_track_info(db=db, track_id=id)
     if result:
         return result
@@ -133,8 +131,8 @@ def get_all_status_code(db: Session = Depends(get_db)):
     return {music.trackId: WaitlistStatus(music.status).description() for music in db.query(models.Waitlist).all()}
 
 
-@app.get("/api/audio", tags=["status"])
-def get_status(trackId: str, request: Request, db: Session = Depends(get_db)) -> Dict[str, str]:
+@app.get("/api/audio", tags=["download"])
+def stream_track(trackId: str, request: Request, db: Session = Depends(get_db)) -> Dict[str, str]:
     music = db.query(models.Music).filter(models.Music.trackId == trackId).first()
     if not music:
         raise HTTPException(status_code=404, detail=f"Music with id {trackId} not found")
@@ -161,12 +159,6 @@ def get_status(trackId: str, request: Request, db: Session = Depends(get_db)) ->
 
     return StreamingResponse(musicBuffer, media_type="audio/mpeg")
 
-
-"""
-@app.get('/api/music/status/reset/{track_id}', tags=["status"])
-def get_status_code_of_a_track(track_id: int, db: Session = Depends(get_db)):
-    return crud.modify_status(db, track_id=track_id, status=WaitlistStatus.INDEXED.value)
-"""
 
 @app.get('/api/music/download', tags=["download"])
 def download_music(trackId: int, db: Session = Depends(get_db)):
@@ -195,42 +187,23 @@ def download_music(trackId: int, db: Session = Depends(get_db)):
 def get_all_music_id_downloaded(db: Session = Depends(get_db)):
     return db.query(models.Music).all()
 
-"""
-@app.get('/api/music/{music_id}', tags=['music'])
-def get_musique_by_id(music_id: str, db: Session = Depends(get_db)):
-    music = db.query(models.Music).filter(models.Music.trackId == music_id).first()
-    if not music:
-        raise HTTPException(status_code=404, detail=f"Music with id {music_id} not found")
-    return StreamingResponse(io.BytesIO(music.musicBuffer), media_type="audio/mpeg")
 
-"""
+@app.get("/api/foryou", tags=["foryou"], response_model=List[MusicDBResponse])
+def get_foryou(limit: Optional[int] = 4, db: Session = Depends(get_db)):
+    # 1. Compter les IDs disponibles (plus rapide que .all())
+    music_ids = db.query(models.Music.trackId).all()
+    if not music_ids:
+        return []
 
+    # 2. Sélection aléatoire d'IDs
+    random_ids = random.sample([id[0] for id in music_ids], min(limit, len(music_ids)))
 
+    # 3. Requête uniquement sur les colonnes nécessaires
+    results = db.query(
+        models.Music.trackId,
+        models.Music.trackName,
+        models.Music.artistName,
+        models.Music.coverImageUrl
+    ).filter(models.Music.trackId.in_(random_ids)).all()
 
-app.get('/api/test/')
-def stream_audio(trackId: str, request: Request, db: Session = Depends(get_db)):
-    music = db.query(models.Music).filter(models.Music.trackId == trackId).first()
-    if not music:
-        raise HTTPException(status_code=404, detail=f"Music with id {trackId} not found")
-    musicBuffer = io.BytesIO(music.musicBuffer)
-    file_size = len(musicBuffer)
-    range_header = request.headers.get("range")
-
-    if range_header:
-        start = int(range_header.replace("bytes=", "").split("-")[0])
-        end = file_size - 1
-        chunk_size = end - start + 1
-
-        def iterfile():
-            musicBuffer.seek(start)
-            yield musicBuffer.read(chunk_size)
-
-        headers = {
-            "Content-Range": f"bytes {start}-{end}/{file_size}",
-            "Accept-Ranges": "bytes",
-            "Content-Length": str(chunk_size),
-            "Content-Type": "audio/mpeg",
-        }
-        return StreamingResponse(iterfile(), status_code=206, headers=headers)
-
-    return StreamingResponse(musicBuffer, media_type="audio/mpeg")
+    return [dict(row._mapping) for row in results]

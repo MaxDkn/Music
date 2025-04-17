@@ -10,16 +10,12 @@ class MusicIdResponse(BaseModel):
 
 class MusicDBResponse(MusicIdResponse):
     trackName: str
-    artisteName: str
+    artistName: str
     coverImageUrl: str
     
 
-class ITunesResponse(BaseModel):
-    trackId: int
-    trackName: str
+class ITunesResponse(MusicDBResponse):
     artistId: int
-    artistName: str
-    artworkUrl: str
     statusCode: int
     statusDescription: Optional[str] = None
 
