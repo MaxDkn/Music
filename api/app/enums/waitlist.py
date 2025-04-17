@@ -18,10 +18,10 @@ class WaitlistStatus(IntEnum):
             self.WAITING: "Waiting to download",
             self.DOWNLOADING: "Downloading...",
             self.SUCCESS: "successful download",
-            self.ERROR_API_ITUNES: "Erreur lors de l'appel à l'API iTunes",
-            self.ERROR_DOWNLOAD: "Erreur lors du téléchargement de la musique",
-            self.ERROR_PROCESSING: "Erreur de conversion ou traitement du fichier audio",
-            self.ERROR_INCOMPLETE_DATA: "Métadonnées manquantes ou invalides",
-            self.ERROR_NOT_FOUND_ON_YOUTUBE: "Pas trouvé sur YouTube",
-            self.ERROR_UNKNOWN: "Erreur inconnue ou inattendue"
+            self.ERROR_API_ITUNES: "Error with iTunes API",
+            self.ERROR_DOWNLOAD: "Error during audio download",
+            self.ERROR_PROCESSING: "Error during processing/conversion",
+            self.ERROR_INCOMPLETE_DATA: "Incomplete metadata",
+            self.ERROR_NOT_FOUND_ON_YOUTUBE: "Not found on YouTube",
+            self.ERROR_UNKNOWN: "Unknown error",
         }[self]

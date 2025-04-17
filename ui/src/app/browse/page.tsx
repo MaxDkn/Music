@@ -12,9 +12,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { API_URL } from "@/data/api";
+import { useMusicPlayer } from "@/components/music-player-context";
 
-const API_URL = process.env.API_URL || "http://localhost/api";
+
 const REQ_INPUT_DELAY = 500;
+
 
 interface ITunesTrack {
   trackId: number;
@@ -25,6 +28,7 @@ interface ITunesTrack {
   statusDescription: string;
 }
 
+
 const searchITunes = async (query: string): Promise<ITunesTrack[]> => {
   const res = await fetch(`${API_URL}/music/search?q=${encodeURIComponent(query)}`);
   if (!res.ok) {
@@ -34,7 +38,9 @@ const searchITunes = async (query: string): Promise<ITunesTrack[]> => {
   return res.json();
 };
 
+
 export default function BrowsePage() {
+  const { playTrack, currentTrackId } = useMusicPlayer()
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   // State now stores both statusCode and statusDescription for each track
@@ -78,7 +84,6 @@ export default function BrowsePage() {
         ...prev,
         [trackId]: { statusCode, statusDescription },
       }));
-      console.log(`Track ${trackId} statusCode: ${statusCode} ${statusDescription}`);
       if (statusCode === 102 || statusCode === 101) return;
       // stop polling if no longer downloading
       const { timeoutId, intervalId } = pollingRefs.current[trackId] || {};
@@ -96,7 +101,11 @@ export default function BrowsePage() {
       statusCode: track?.statusCode ?? 0,
       statusDescription: track?.statusDescription ?? "",
     };
+
+    if (current.statusCode === 200) playTrack(trackId);
+
     if (current.statusCode !== 100) return;
+    
     const existing = pollingRefs.current[trackId];
     if (existing) {
       if (existing.timeoutId) clearTimeout(existing.timeoutId);
@@ -110,9 +119,7 @@ export default function BrowsePage() {
         ...prev,
         [trackId]: { statusCode, statusDescription: statusDescription },
       }));
-      console.log(`Track ${trackId} statusCode: ${statusCode} -----`);
       if (statusCode === 200) {
-        console.log("Finish");
         return;
       }
       const timeoutId = setTimeout(() => {

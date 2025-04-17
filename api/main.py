@@ -38,6 +38,11 @@ logging.basicConfig(
 )
 recurring_job = None
 
+app.get('/api/')
+def root():
+    return {'message': 'API is running'}
+
+
 def _compute_next_run_seconds():
     if not recurring_job or not recurring_job.next_run_time:
         return None
@@ -111,7 +116,7 @@ async def itunes_query(q: str, db: Session = Depends(get_db)):
             result['statusDescription'] = WaitlistStatus(statusCode).description()
         return results
     else:
-        raise HTTPException(status_code=404, detail=f"Aucun résultat trouvé.")
+        raise HTTPException(status_code=404, detail=f"Result not found.")
 
 
 @app.get('/api/music/search_track/{id}', response_model=ITunesResponse, tags=['search'])
@@ -120,7 +125,7 @@ async def itunes_query(id: int, db: Session = Depends(get_db)):
     if result:
         return result
     else:
-        raise HTTPException(status_code=404, detail=f"Aucun résultat trouvé.")
+        raise HTTPException(status_code=404, detail=f"Result not found.")
 
 
 @app.get('/api/music/status/all', tags=["status"])
@@ -128,24 +133,33 @@ def get_all_status_code(db: Session = Depends(get_db)):
     return {music.trackId: WaitlistStatus(music.status).description() for music in db.query(models.Waitlist).all()}
 
 
-@app.get("/api/music/status", tags=["status"])
-def get_status(tracks_id: List[str], db: Session = Depends(get_db)) -> Dict[str, str]:
-    results = {}
+@app.get("/api/audio", tags=["status"])
+def get_status(trackId: str, request: Request, db: Session = Depends(get_db)) -> Dict[str, str]:
+    music = db.query(models.Music).filter(models.Music.trackId == trackId).first()
+    if not music:
+        raise HTTPException(status_code=404, detail=f"Music with id {trackId} not found")
+    musicBuffer = io.BytesIO(music.musicBuffer)
+    file_size = musicBuffer.getbuffer().nbytes
+    range_header = request.headers.get("range")
 
-    for track_id in tracks_id:
-        music = db.query(models.Waitlist).filter(models.Waitlist.trackId == track_id).first()
-        if not music:
-            # Si le morceau n'est pas dans la DB, on tente de le récupérer
-            music_info = downloader.get_track_info(db=db, track_id=track_id)
-            if music_info:
-                crud.add_waitlist_entry(db, track_id=music_info.trackId, status=WaitlistStatus.INDEXED.value)
-                results[track_id] = WaitlistStatus.INDEXED.value
-            else:
-                results[track_id] = "NOT_FOUND"
-        else:
-            results[track_id] = music.status
+    if range_header:
+        start = int(range_header.replace("bytes=", "").split("-")[0])
+        end = file_size - 1
+        chunk_size = end - start + 1
 
-    return results
+        def iterfile():
+            musicBuffer.seek(start)
+            yield musicBuffer.read(chunk_size)
+
+        headers = {
+            "Content-Range": f"bytes {start}-{end}/{file_size}",
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(chunk_size),
+            "Content-Type": "audio/mpeg",
+        }
+        return StreamingResponse(iterfile(), status_code=206, headers=headers)
+
+    return StreamingResponse(musicBuffer, media_type="audio/mpeg")
 
 
 """
@@ -191,11 +205,13 @@ def get_musique_by_id(music_id: str, db: Session = Depends(get_db)):
 
 """
 
-app.get('/api/music/{trackId}', tags=['music'])
+
+
+app.get('/api/test/')
 def stream_audio(trackId: str, request: Request, db: Session = Depends(get_db)):
     music = db.query(models.Music).filter(models.Music.trackId == trackId).first()
     if not music:
-        raise HTTPException(status_code=404, detail=f"Music with id {music_id} not found")
+        raise HTTPException(status_code=404, detail=f"Music with id {trackId} not found")
     musicBuffer = io.BytesIO(music.musicBuffer)
     file_size = len(musicBuffer)
     range_header = request.headers.get("range")
