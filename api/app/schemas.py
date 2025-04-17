@@ -21,6 +21,7 @@ class ITunesResponse(BaseModel):
     artistName: str
     artworkUrl: str
     statusCode: int
+    statusDescription: Optional[str] = None
 
     class Config:
         from_attrbiutes = True

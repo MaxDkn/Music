@@ -6,9 +6,15 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const API_URL = process.env.API_URL || "http://localhost/api";
-const DELAY = 500;
+const REQ_INPUT_DELAY = 500;
 
 interface ITunesTrack {
   trackId: number;
@@ -16,6 +22,7 @@ interface ITunesTrack {
   artistName: string;
   artworkUrl: string;
   statusCode: number;
+  statusDescription: string;
 }
 
 const searchITunes = async (query: string): Promise<ITunesTrack[]> => {
@@ -30,7 +37,10 @@ const searchITunes = async (query: string): Promise<ITunesTrack[]> => {
 export default function BrowsePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
-  const [downloadStatus, setDownloadStatus] = useState<Record<number, number>>({});
+  // State now stores both statusCode and statusDescription for each track
+  const [downloadStatus, setDownloadStatus] = useState<
+    Record<number, { statusCode: number; statusDescription: string }>
+  >({});
   const pollingRefs = useRef<Record<
     number,
     { timeoutId?: NodeJS.Timeout; intervalId?: NodeJS.Timeout }
@@ -41,12 +51,10 @@ export default function BrowsePage() {
       if (
         searchTerm.endsWith(" ") &&
         searchTerm.trim() === debouncedSearchTerm.trim()
-      ) {
+      )
         return;
-      }
       setDebouncedSearchTerm(searchTerm);
-    }, DELAY);
-
+    }, REQ_INPUT_DELAY);
     return () => clearTimeout(handler);
   }, [searchTerm, debouncedSearchTerm]);
 
@@ -64,60 +72,54 @@ export default function BrowsePage() {
   const pollTrack = async (trackId: number) => {
     try {
       const res = await fetch(`${API_URL}/music/download?trackId=${trackId}`);
-      const { statusCode } = await res.json();
-      setDownloadStatus((prev) => ({ ...prev, [trackId]: statusCode }));
-
-      if (statusCode !== 200) {
-        return;
-      }
-
-      // Dès qu'on atteint 200, on stoppe tous les timers pour ce track
+      const { statusCode, statusDescription } = await res.json();
+      // Update both statusCode and statusDescription
+      setDownloadStatus((prev) => ({
+        ...prev,
+        [trackId]: { statusCode, statusDescription },
+      }));
+      console.log(`Track ${trackId} statusCode: ${statusCode} ${statusDescription}`);
+      if (statusCode === 102 || statusCode === 101) return;
+      // stop polling if no longer downloading
       const { timeoutId, intervalId } = pollingRefs.current[trackId] || {};
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
+      if (timeoutId) clearTimeout(timeoutId);
+      if (intervalId) clearInterval(intervalId);
       delete pollingRefs.current[trackId];
     } catch {
-      // Vous pouvez gérer les erreurs réseau ici
+      // network errors
     }
   };
 
   const handleTrackClick = async (trackId: number) => {
-    // Cancel timers existants (sécurité si on reclique rapidement)
+    const track = data?.find((t) => t.trackId === trackId);
+    const current = downloadStatus[trackId] ?? {
+      statusCode: track?.statusCode ?? 0,
+      statusDescription: track?.statusDescription ?? "",
+    };
+    if (current.statusCode !== 100) return;
     const existing = pollingRefs.current[trackId];
     if (existing) {
-      if (existing.timeoutId) {
-        clearTimeout(existing.timeoutId);
-      }
-      if (existing.intervalId) {
-        clearInterval(existing.intervalId);
-      }
+      if (existing.timeoutId) clearTimeout(existing.timeoutId);
+      if (existing.intervalId) clearInterval(existing.intervalId);
     }
-
-    // Premier appel
     try {
       const res = await fetch(`${API_URL}/music/download?trackId=${trackId}`);
-      const { statusCode, nextRun } = await res.json();
-      setDownloadStatus((prev) => ({ ...prev, [trackId]: statusCode }));
-
-      // Si déjà prêt, on ne fait rien d'autre
+      const { statusCode, nextRun, statusDescription } = await res.json();
+      // Update state with initial download response
+      setDownloadStatus((prev) => ({
+        ...prev,
+        [trackId]: { statusCode, statusDescription: statusDescription },
+      }));
+      console.log(`Track ${trackId} statusCode: ${statusCode} -----`);
       if (statusCode === 200) {
+        console.log("Finish");
         return;
       }
-
-      // 5) Si pas prêt : attendre nextRun+1 sec, puis un appel, puis polling 8s
       const timeoutId = setTimeout(() => {
-        // Un premier retry
         pollTrack(trackId);
-        // Ensuite on bascule en mode interval
         const intervalId = setInterval(() => pollTrack(trackId), 17_500);
         pollingRefs.current[trackId].intervalId = intervalId;
       }, (nextRun + 1) * 1_000);
-
-      // On stocke notre timeout
       pollingRefs.current[trackId] = { timeoutId };
     } catch (err) {
       console.error(err);
@@ -163,7 +165,7 @@ export default function BrowsePage() {
     <div className="p-4">
       <form onSubmit={(e) => e.preventDefault()} className="flex justify-center mb-8">
         <div className="relative w-xl">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
             autoFocus
             placeholder="Search"
@@ -173,6 +175,7 @@ export default function BrowsePage() {
           />
         </div>
       </form>
+
       {isLoading && (
         <div className="grid gap-4">
           {[...Array(10)].map((_, i) => (
@@ -186,35 +189,55 @@ export default function BrowsePage() {
           ))}
         </div>
       )}
+
       {isError && <p className="text-red-500">{(error as Error).message}</p>}
+
       {!isLoading && data && (
-        <div className="grid gap-4">
-          {data.map((track: ITunesTrack) => {
-            const statusCode = downloadStatus[track.trackId] ?? track.statusCode;
-            return (
-              <div
-                key={track.trackId}
-                onClick={() => handleTrackClick(track.trackId)}
-                className="group relative flex items-center gap-4 p-2 border rounded hover:shadow-lg transition-shadow cursor-pointer"
-              >
-                <Image
-                  src={`${track.artworkUrl}60x60bb.jpg`} 
-                  alt={track.trackName}
-                  className="w-12 h-12 rounded"
-                />
-                <div className="absolute inset-0 rounded bg-black opacity-0 group-hover:opacity-5 transition-opacity"></div>
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  {renderStatusIcon(statusCode)}
-                </div>
-                <div className="flex flex-col">
-                  <p className="font-medium">{track.trackName}</p>
-                  <p className="text-sm text-muted-foreground">{track.artistName}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <TooltipProvider delayDuration={800} skipDelayDuration={300}>
+          <div className="grid gap-4">
+            {data.map((track: ITunesTrack) => {
+              const { statusCode, statusDescription } =
+                downloadStatus[track.trackId] ?? {
+                  statusCode: track.statusCode,
+                  statusDescription: track.statusDescription,
+                };
+              return (
+                <Tooltip key={track.trackId} delayDuration={800}>
+                  <TooltipTrigger asChild>
+                    <div
+                      onClick={() => handleTrackClick(track.trackId)}
+                      className="group relative flex items-center gap-4 p-2 border rounded hover:shadow transition-shadow cursor-pointer"
+                    >
+                      <Image
+                        src={`${track.artworkUrl}60x60bb.jpg`}
+                        width={60}
+                        height={60}
+                        alt={track.trackName}
+                        className="rounded"
+                      />
+                      <div className="absolute inset-0 rounded bg-black opacity-0 group-hover:opacity-5 transition-opacity" />
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        {renderStatusIcon(statusCode)}
+                      </div>
+                      <div className="flex flex-col">
+                        <p className="font-medium">{track.trackName}</p>
+                        <p className="text-sm text-muted-foreground">{track.artistName}</p>
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  {statusCode !== 100 && statusCode !== 200 && (
+                    <TooltipContent side="top" sideOffset={6}>
+                      <p>{statusDescription}</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              );
+            })}
+          </div>
+        </TooltipProvider>
       )}
     </div>
   );
 }
+
+

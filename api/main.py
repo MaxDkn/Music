@@ -6,7 +6,7 @@ from typing import List, Dict
 from app.enums.waitlist import WaitlistStatus
 from sqlalchemy.orm import Session
 from app import models, crud, downloader
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from app.schemas import MusicDBResponse, ITunesResponse
 from app.database import Base, engine, SessionLocal, wait_for_db
@@ -106,7 +106,9 @@ async def itunes_query(q: str, db: Session = Depends(get_db)):
     results = downloader.seek_itunes_music(query=q)
     if results:
         for result in results:
-            result['statusCode'] = crud.get_status_code(db, result['trackId'])
+            statusCode = crud.get_status_code(db, result['trackId'])
+            result['statusCode'] = statusCode
+            result['statusDescription'] = WaitlistStatus(statusCode).description()
         return results
     else:
         raise HTTPException(status_code=404, detail=f"Aucun résultat trouvé.")
@@ -170,7 +172,7 @@ def download_music(trackId: int, db: Session = Depends(get_db)):
     status = WaitlistStatus(music.status)
     return {
         "statusCode": status.value,
-        "description": status.description(),
+        "statusDescription": status.description(),
         "nextRun": _compute_next_run_seconds(),
     }
 
@@ -179,7 +181,7 @@ def download_music(trackId: int, db: Session = Depends(get_db)):
 def get_all_music_id_downloaded(db: Session = Depends(get_db)):
     return db.query(models.Music).all()
 
-
+"""
 @app.get('/api/music/{music_id}', tags=['music'])
 def get_musique_by_id(music_id: str, db: Session = Depends(get_db)):
     music = db.query(models.Music).filter(models.Music.trackId == music_id).first()
@@ -187,15 +189,32 @@ def get_musique_by_id(music_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail=f"Music with id {music_id} not found")
     return StreamingResponse(io.BytesIO(music.musicBuffer), media_type="audio/mpeg")
 
-
-
-
 """
-@app.get('/api/music/{music_id}', response_model=MusicDBResponse)
-def get_musique_by_id(music_id: str, db: Session = Depends(get_db)):
-    music = db.query(models.Music).filter(models.Music.MusicId == music_id).first()
+
+app.get('/api/music/{trackId}', tags=['music'])
+def stream_audio(trackId: str, request: Request, db: Session = Depends(get_db)):
+    music = db.query(models.Music).filter(models.Music.trackId == trackId).first()
     if not music:
         raise HTTPException(status_code=404, detail=f"Music with id {music_id} not found")
-    return MusicDBResponse.from_orm(music)
-"""
+    musicBuffer = io.BytesIO(music.musicBuffer)
+    file_size = len(musicBuffer)
+    range_header = request.headers.get("range")
 
+    if range_header:
+        start = int(range_header.replace("bytes=", "").split("-")[0])
+        end = file_size - 1
+        chunk_size = end - start + 1
+
+        def iterfile():
+            musicBuffer.seek(start)
+            yield musicBuffer.read(chunk_size)
+
+        headers = {
+            "Content-Range": f"bytes {start}-{end}/{file_size}",
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(chunk_size),
+            "Content-Type": "audio/mpeg",
+        }
+        return StreamingResponse(iterfile(), status_code=206, headers=headers)
+
+    return StreamingResponse(musicBuffer, media_type="audio/mpeg")

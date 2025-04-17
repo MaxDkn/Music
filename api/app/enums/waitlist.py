@@ -14,10 +14,10 @@ class WaitlistStatus(IntEnum):
 
     def description(self) -> str:
         return {
-            self.INDEXED: "Track indexé mais téléchargement non prévu",
-            self.WAITING: "En attente de téléchargement",
-            self.DOWNLOADING: "Téléchargement en cours",
-            self.SUCCESS: "Téléchargement réussi et ajouté à MUSIC",
+            self.INDEXED: "Indexed but not scheduled for download",
+            self.WAITING: "Waiting to download",
+            self.DOWNLOADING: "Downloading...",
+            self.SUCCESS: "successful download",
             self.ERROR_API_ITUNES: "Erreur lors de l'appel à l'API iTunes",
             self.ERROR_DOWNLOAD: "Erreur lors du téléchargement de la musique",
             self.ERROR_PROCESSING: "Erreur de conversion ou traitement du fichier audio",

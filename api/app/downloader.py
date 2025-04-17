@@ -91,7 +91,9 @@ def get_track_info(db, track_id: int, url: str = "https://itunes.apple.com/looku
         if results:
             track = results[0]
             track['artworkUrl'] = track['artworkUrl100'].replace('100x100bb.jpg', '')
-            track['statusCode'] = crud.get_status_code(db=db, track_id=track_id)
+            statusCode = crud.get_status_code(db=db, track_id=track_id)
+            track['statusCode'] = statusCode
+            track['statusDescription'] = WaitlistStatus(statusCode).description()
             return ITunesResponse(**track)
     else:
         raise {"error": f"Request failed with status code {response.status_code}"}
@@ -126,7 +128,7 @@ def download_music_on_ytb(watch_key: str, output_path="tmp_downloads") -> BytesI
     url = f"https://www.youtube.com/watch?v={watch_key}"
     ydl_opts = {
         'format': 'bestaudio/best',
-        'outtmpl': f'{output_path}/%(title)s.%(ext)s',
+        'outtmpl': f'{output_path}/{watch_key}.%(ext)s',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
@@ -140,7 +142,8 @@ def download_music_on_ytb(watch_key: str, output_path="tmp_downloads") -> BytesI
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             title = info.get('title', 'audio')
-            filename = os.path.join(output_path, f"{title}.mp3")
+            
+            filename = os.path.join(output_path, f"{watch_key}.mp3")
 
         with open(filename, 'rb') as f:
             audio_bytes = BytesIO(f.read())
