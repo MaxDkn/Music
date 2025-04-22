@@ -39,7 +39,7 @@ export default function MusicPage() {
         const res5 = await fetch(`${API_URL}/foryou?limit=5`)
         const json5 = await res5.json()
         setSmallTracks(json5)
-        if (largeTracks.length === 0 && smallTracks.length === 0) {
+        if (json4.length === 0 && json5.length === 0) {
           setEmpty(true)
         }
       } catch (error) {

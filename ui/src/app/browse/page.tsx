@@ -40,7 +40,7 @@ const searchITunes = async (query: string): Promise<ITunesTrack[]> => {
 
 
 export default function BrowsePage() {
-  const { playTrack, currentTrackId } = useMusicPlayer()
+  const { playTrack } = useMusicPlayer()
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   // State now stores both statusCode and statusDescription for each track
